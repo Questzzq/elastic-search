@@ -1,0 +1,8 @@
+server:
+  port: 8080
+
+elasticsearch:
+  hostname: 127.0.0.1
+  port: 9200
+  socket-timeout: 30s
+
