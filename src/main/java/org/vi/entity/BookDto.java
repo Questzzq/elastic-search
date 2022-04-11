@@ -13,7 +13,8 @@ import lombok.*;
 @Getter
 @Setter
 public class BookDto {
-    private long id;
+    private Long id;
+    private String tag;
     private String author;
     private String name;
     private String desc;

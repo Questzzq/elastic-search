@@ -15,10 +15,16 @@ import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
@@ -155,5 +161,31 @@ public class HighLevelRestController {
         // 操作ES
         DeleteResponse deleteResponse = restHighLevelClient.delete(deleteRequest, RequestOptions.DEFAULT);
         return new ResBean(HttpStatus.OK.value(), "删除成功", deleteResponse);
+    }
+
+    @GetMapping("/getArgsTags")
+    public ResBean getArgsTags(String author) throws IOException {
+        SearchRequest searchRequest = new SearchRequest(Constant.INDEX);
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+        if(StringUtils.isNotBlank(author)) {
+            queryBuilder.must(QueryBuilders.multiMatchQuery(author,"author"));
+            sourceBuilder.query(queryBuilder);
+        }
+        TermsAggregationBuilder authorAgg = AggregationBuilders.terms("group_author").field("author.keyword");
+//        TermsAggregationBuilder tagAgg = AggregationBuilders.terms("group_tag").field("tag.keyword");
+//        authorAgg.subAggregation(tagAgg);
+        sourceBuilder.aggregation(authorAgg);
+        searchRequest.source(sourceBuilder);
+        SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+        Aggregations aggregations = searchResponse.getAggregations();
+        ParsedStringTerms terms = aggregations.get("group_appName");
+        List<? extends Terms.Bucket> buckets = terms.getBuckets();
+        Map<String, Object> map = new HashMap<>();
+        for(Terms.Bucket bucket: buckets) {
+            map.put(bucket.getKey().toString(), bucket.getDocCount());
+            System.out.println(bucket.getKey() + ": " + bucket.getDocCount());
+        }
+        return ResBean.success(map);
     }
 }
