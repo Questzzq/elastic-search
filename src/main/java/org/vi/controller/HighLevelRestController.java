@@ -173,18 +173,27 @@ public class HighLevelRestController {
             sourceBuilder.query(queryBuilder);
         }
         TermsAggregationBuilder authorAgg = AggregationBuilders.terms("group_author").field("author.keyword");
-//        TermsAggregationBuilder tagAgg = AggregationBuilders.terms("group_tag").field("tag.keyword");
-//        authorAgg.subAggregation(tagAgg);
+        TermsAggregationBuilder tagAgg = AggregationBuilders.terms("group_tag").field("tag.keyword");
+        authorAgg.subAggregation(tagAgg);
         sourceBuilder.aggregation(authorAgg);
         searchRequest.source(sourceBuilder);
         SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
         Aggregations aggregations = searchResponse.getAggregations();
-        ParsedStringTerms terms = aggregations.get("group_appName");
+        ParsedStringTerms terms = aggregations.get("group_author");
         List<? extends Terms.Bucket> buckets = terms.getBuckets();
         Map<String, Object> map = new HashMap<>();
         for(Terms.Bucket bucket: buckets) {
-            map.put(bucket.getKey().toString(), bucket.getDocCount());
-            System.out.println(bucket.getKey() + ": " + bucket.getDocCount());
+            // 处理嵌套聚合结果
+            Aggregations subAggregations = bucket.getAggregations();
+            ParsedStringTerms subTerms = subAggregations.get("group_tag");
+            List<? extends Terms.Bucket> subBuckets = subTerms.getBuckets();
+            Map<String, Object> subMap = new HashMap<>();
+            System.out.println("作者: " + bucket.getKey());
+            for(Terms.Bucket subBucket: subBuckets) {
+                subMap.put(subBucket.getKey().toString(), subBucket.getDocCount());
+                System.out.println("标签: " + subBucket.getKey() + " 数量: " + subBucket.getDocCount());
+            }
+            map.put(bucket.getKey().toString(), subMap);
         }
         return ResBean.success(map);
     }
